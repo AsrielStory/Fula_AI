@@ -7,6 +7,12 @@
     <li>STT (speech to text) - <a href="https://github.com/alphacep/vosk-api">vosk</a></li>
 </ul>
 <br>
+<div>Если вас не устаривает точность STT (точности распознавания речи) то:</div>
+<ol>
+    <li>Скачайте большую модель</li>
+    <li>Перенесите папу модели в папку с Fula</li>
+    <li>Измените параметр "model = Model("small_model")" на "model = Model("model")"</li>
+</ol>
 <div>Фунции:</div>
 <ul>
     <li>Прогноз погоды
@@ -44,11 +50,7 @@
         </ul>
         </i>
     </li>
+    <li>Время сейчас</li>
+    <li>Анекдоты</li>
+    <li>Сброс настроек</li>
 </ul>
-<br>
-<div>Если вас не устаривает точность STT (точности распознавания речи) то:</div>
-<ol>
-    <li>Скачайте большую модель</li>
-    <li>Перенесите папу модели в папку с Fula</li>
-    <li>Измените параметр "model = Model("small_model")" на "model = Model("model")"</li>
-</ol>

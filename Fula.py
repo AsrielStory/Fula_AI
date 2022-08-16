@@ -2,7 +2,7 @@
 
 # Переобдуманный первый голосовой помощник (Ozeta)
 from vosk import Model, KaldiRecognizer  # STT
-from random import randint, choice
+from random import choice
 import torch  # Silero (TTS)
 import sounddevice
 import webbrowser
@@ -12,26 +12,22 @@ import requests
 import pyaudio
 import string
 import socket
+import pynput
 import numpy
 import time
 import json
 import bs4
 import os
 
-# Старт
-print('░░███████╗░░██╗░░░██╗░░██╗░░░░░░░░█████╗░░░')
-print('░░██╔════╝░░██║░░░██║░░██║░░░░░░░██╔══██╗░░')
-print('░░█████╗░░░░██║░░░██║░░██║░░░░░░░███████║░░')
-print('░░██╔══╝░░░░██║░░░██║░░██║░░░░░░░██╔══██║░░')
-print('░░██║░░░░░░░╚██████╔╝░░███████╗░░██║░░██║░░')
-print('░░╚═╝░░░░░░░░╚═════╝░░░╚══════╝░░╚═╝░░╚═╝░░')
-
+#k = pynput.keyboard.Controller()
+#k.press(pynput.keyboard.Key.media_play_pause)
+#k.release(pynput.keyboard.Key.media_play_pause)
 
 # Конфиги Fula
 Fula = {
     'name': 'Fula',
     'name_rus': 'фула',
-    'version': '0.0.1',
+    'version': '0.0.2',
     'author': 'Asriel_Story',
     'web-site': '...',
     'github': 'https://github.com/AsrielStory/Fula_AI',
@@ -148,6 +144,24 @@ def minute_norm(num):
     else:
         return int_to_string[num] + " минут"
 
+# Склонение градусов + перевод числа в строку
+def degree_norm(num):
+    if abs(num % 10) == 1 and abs(num) != 11:
+        return (int_to_string[num] + ' градус цельсия')
+    elif (abs(num) % 10 == 2 or abs(num) % 10 == 3 or abs(num) % 10 == 4) and abs(num) != 12 and abs(num) != 13 and abs(num) != 14:
+        return (int_to_string[num] + ' градуса цельсия')
+    else:
+        return (int_to_string[num] + ' градусов цельсия')
+
+# Склонение скорости в метрах в секунду
+def speed_norm(num):
+    if num % 10 == 1 and num != 11:
+        return (int_to_string[num] + ' метр в секунду')
+    elif (num % 10 == 2 or num % 10 == 3 or num % 10 == 4) and num != 12 and num != 13 and num != 14:
+        return (int_to_string[num] + ' метра в секунду')
+    else:
+        return (int_to_string[num] + ' метров в секунду')
+
 # Проверка интернет соединения
 def internet_connection(url='www.google.com'):
     try:
@@ -162,7 +176,7 @@ def internet_connection(url='www.google.com'):
 
 # Информация о Fula
 def help_info(input_text = ''):
-    text = f"Сперва представлюсь, меня зовут {Fula['name_rus']}, запущенная на данный момент версия {int_to_string[int(Fula['version'].split('.')[0])]} {int_to_string[int(Fula['version'].split('.')[1])]} {int_to_string[int(Fula['version'].split('.')[2])]}, создателя же моего зовут азриель стори"
+    text = f"Сперва представлюсь, меня зовут {Fula['name_rus']}, запущенная на данный момент версия {int_to_string[int(Fula['version'].split('.')[0])]} {int_to_string[int(Fula['version'].split('.')[1])]} {int_to_string[int(Fula['version'].split('.')[2])]}, создателя же моего зовут азриель ст+ори"
     text_to_speak(text)
 
 # Привет
@@ -236,7 +250,7 @@ def search_google(input_text = ''):
     if not(internet_connection('www.google.com')):
         random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу этого узнать, так как у меня нет интернет соединения')
         text_to_speak(choice(random_internet_null))
-        return 0
+        return -1
     for i in Fula_cmd_key['search_google']:
         if i in input_text:
             key = i
@@ -261,7 +275,7 @@ def search_yandex(input_text = ''):
     if not(internet_connection('www.yandex.com')):
         random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу этого узнать, так как у меня нет интернет соединения')
         text_to_speak(choice(random_internet_null))
-        return 0
+        return -1
     for i in Fula_cmd_key['search_yandex']:
         if i in input_text:
             key = i
@@ -274,7 +288,7 @@ def search_yandex(input_text = ''):
         if answ == 'отмена':
             random_search_null_back = ('Окей', 'Ладно', 'Хорошо')
             text_to_speak(choice(random_search_null_back))
-            return 0
+            return -1
     url_y = 'https://yandex.by/search/?text=' + '+'.join(input_text.split()[input_text.split().index(key.split()[-1]) + 1:])
     random_search = ('Секунду', 'Сею секунду', 'Вот', 'Сейчас поищу', 'Секунду сейчас поищу', 'Секундочку сейчас поищу', '')
     text_to_speak(choice(random_search))
@@ -295,92 +309,246 @@ def weather(input_text = ''):
         random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать погоду, так как у меня нет интернет соединения', 'Я не смогу рассказать про погоду, так как нету интернет соединения')
         text_to_speak(choice(random_internet_null))
         return 0
-    if ('в' in input_text or 'на' in input_text or 'во' in input_text) and not('понедельник' in input_text or 'вторник' in input_text or 'среду' in input_text or 'четверг' in input_text or 'пятницу' in input_text or 'суботу' in input_text or 'воскресенье' in input_text):
+    if ('в' in input_text or 'на' in input_text or 'во' in input_text) and not('сегодня' in input_text or 'понедельник' in input_text or 'вторник' in input_text or 'среду' in input_text or 'четверг' in input_text or 'пятницу' in input_text or 'суботу' in input_text or 'воскресенье' in input_text) and not(input_text.split().count('во') + input_text.split().count('в') + input_text.split().count('на') == 1 and 'завтра' in input_text):
         if 'в' in input_text.split():
             index_key = 'в'
-        elif 'на' in input_text.split():
-            index_key = 'на'
         elif 'во' in input_text.split():
             index_key = 'во'
+        elif 'на' in input_text.split():
+            index_key = 'на'
         geo_clear = input_text.split()[input_text.split().index(index_key) + 1]
         try:
             geo_clear = morph.parse(geo_clear)[0].inflect({'nomn'}).word
         except AttributeError:
             text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
-            return 0
+            return -1
     else:
         geo_mud = bs4.BeautifulSoup(requests.get('https://yandex.by/internet').text, "html.parser").find_all('div', class_='location-renderer__value')
         for i in geo_mud:
             geo_clear = i.text
         geo_clear = geo_clear.strip().split()[-1]
-    if 'завтра' in input_text:
-        pass
-    elif 'после завтра' in input_text:
-        pass
-    elif 'после после завтра' in input_text:
-        pass
-    elif 'понедельник' in input_text:
-        pass
-    elif 'вторник' in input_text:
-        pass
-    elif 'среду' in input_text:
-        pass
-    elif 'четверг' in input_text:
-        pass
-    elif 'пятницу' in input_text:
-        pass
-    elif 'суботу' in input_text:
-        pass
-    elif 'воскресенье' in input_text:
-        pass
-    elif 'неделю' in input_text:
-        pass
-    else:
-        weather_data = requests.get("https://api.openweathermap.org/data/2.5/weather", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
-        if weather_data['cod'] == 404:
+    if 'завтра' in input_text and not('после' in input_text):
+        weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
+        if int(weather_data['cod']) == 404:
             text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
-            return 0
+            return -1
+        text = ''
+        pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
+        tomorrow_weather = []
+        tomorrow_weather_temp = int(-100)
+        tomorrow_weather_weather_max = 0
+        tomorrow_weather_weather_max_name = ''
+        tomorrow_weather_weather_sort = dict()
+        i_time = weather_data['list'][0]['dt_txt'].split()[0]
+        i_o = True
+        for i in weather_data['list']:
+            if i_time != i['dt_txt'].split()[0] and i_o:
+                i_o = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o):
+                break
+            if i_time == i['dt_txt'].split()[0] and not(i_o):
+                tomorrow_weather.append(i)
+                if i['main']['temp_max'] > int(tomorrow_weather_temp):
+                    tomorrow_weather_temp = int(i['main']['temp_max'])
+                tomorrow_weather_weather_sort.setdefault(i['weather'][0]['description'], 0)
+                tomorrow_weather_weather_sort[i['weather'][0]['description']] += 1
+                if tomorrow_weather_weather_sort[i['weather'][0]['description']] >= tomorrow_weather_weather_max:
+                    tomorrow_weather_weather_max = tomorrow_weather_weather_sort[i['weather'][0]['description']]
+                    tomorrow_weather_weather_max_name = i['weather'][0]['description']
+        random_weather_start = (f'Погода в {pp_geo} на завтра', f'Сейчас я вам расскажу о завтрашней погоде в {pp_geo}', f'Завтра в {pp_geo}')
+        text += choice(random_weather_start) + ' . . . '
+        random_weather_weather = (f'За окном будет {tomorrow_weather_weather_max_name}', )
+        text += choice(random_weather_weather) + ' . . . '
+        random_weather_temp = (f'Температура же завтра будет {degree_norm(tomorrow_weather_temp)}', f'Температура же будет {degree_norm(tomorrow_weather_temp)}')
+        text += choice(random_weather_temp) + ' . . . '
+        text_to_speak(text)
+    elif 'завтра' in input_text and input_text.count('после') == 1:
+        weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
+        if int(weather_data['cod']) == 404:
+            text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
+            return -1
+        text = ''
+        pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
+        tomorrow_weather = []
+        tomorrow_weather_temp = int(-100)
+        tomorrow_weather_weather_max = 0
+        tomorrow_weather_weather_max_name = ''
+        tomorrow_weather_weather_sort = dict()
+        i_time = weather_data['list'][0]['dt_txt'].split()[0]
+        i_o1 = True
+        i_o2 = True
+        for i in weather_data['list']:
+            if i_time != i['dt_txt'].split()[0] and i_o1 and i_o2:
+                i_o1 = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o1) and i_o2:
+                i_o2 = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o1) and not(i_o2):
+                break
+            if i_time == i['dt_txt'].split()[0] and not(i_o1) and not(i_o2):
+                tomorrow_weather.append(i)
+                if i['main']['temp_max'] > int(tomorrow_weather_temp):
+                    tomorrow_weather_temp = int(i['main']['temp_max'])
+                tomorrow_weather_weather_sort.setdefault(i['weather'][0]['description'], 0)
+                tomorrow_weather_weather_sort[i['weather'][0]['description']] += 1
+                if tomorrow_weather_weather_sort[i['weather'][0]['description']] >= tomorrow_weather_weather_max:
+                    tomorrow_weather_weather_max = tomorrow_weather_weather_sort[i['weather'][0]['description']]
+                    tomorrow_weather_weather_max_name = i['weather'][0]['description']
+        random_weather_start = (f'Погода в {pp_geo} на послезавтра', f'Сейчас я вам расскажу о послезавтрашней погоде в {pp_geo}', f'Послезавтра в {pp_geo}')
+        text += choice(random_weather_start) + ' . . . '
+        random_weather_weather = (f'За окном будет {tomorrow_weather_weather_max_name}',)
+        text += choice(random_weather_weather) + ' . . . '
+        random_weather_temp = (f'Температура же послезавтра будет {degree_norm(tomorrow_weather_temp)}', f'Температура же будет {degree_norm(tomorrow_weather_temp)}')
+        text += choice(random_weather_temp) + ' . . . '
+        text_to_speak(text)
+    elif 'завтра' in input_text and input_text.count('после') == 2:
+        weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
+        if int(weather_data['cod']) == 404:
+            text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
+            return -1
+        text = ''
+        pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
+        tomorrow_weather = []
+        tomorrow_weather_temp = int(-100)
+        tomorrow_weather_weather_max = 0
+        tomorrow_weather_weather_max_name = ''
+        tomorrow_weather_weather_sort = dict()
+        i_time = weather_data['list'][0]['dt_txt'].split()[0]
+        i_o1 = True
+        i_o2 = True
+        i_o3 = True
+        for i in weather_data['list']:
+            if i_time != i['dt_txt'].split()[0] and i_o1 and i_o2 and i_o3:
+                i_o1 = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o1) and i_o2 and i_o3:
+                i_o2 = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o1) and not(i_o2) and i_o3:
+                i_o3 = False
+                i_time = i['dt_txt'].split()[0]
+            elif i_time != i['dt_txt'].split()[0] and not(i_o1) and not(i_o2) and not(i_o3):
+                break
+            if i_time == i['dt_txt'].split()[0] and not(i_o1) and not(i_o2) and not(i_o3):
+                tomorrow_weather.append(i)
+                if i['main']['temp_max'] > int(tomorrow_weather_temp):
+                    tomorrow_weather_temp = int(i['main']['temp_max'])
+                tomorrow_weather_weather_sort.setdefault(i['weather'][0]['description'], 0)
+                tomorrow_weather_weather_sort[i['weather'][0]['description']] += 1
+                if tomorrow_weather_weather_sort[i['weather'][0]['description']] >= tomorrow_weather_weather_max:
+                    tomorrow_weather_weather_max = tomorrow_weather_weather_sort[i['weather'][0]['description']]
+                    tomorrow_weather_weather_max_name = i['weather'][0]['description']
+        random_weather_start = (f'Погода в {pp_geo} на после послезавтра', f'Сейчас я вам расскажу о после послезавтрашней погоде в {pp_geo}', f'После послезавтра в {pp_geo}')
+        text += choice(random_weather_start) + ' . . . '
+        random_weather_weather = (f'За окном будет {tomorrow_weather_weather_max_name}',)
+        text += choice(random_weather_weather) + ' . . . '
+        random_weather_temp = (f'Температура же после послезавтра будет {degree_norm(tomorrow_weather_temp)}', f'Температура же будет {degree_norm(tomorrow_weather_temp)}')
+        text += choice(random_weather_temp) + ' . . . '
+        text_to_speak(text)
+    elif 'сейчас' in input_text.split():
+        weather_data = requests.get("https://api.openweathermap.org/data/2.5/weather", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
+        if int(weather_data['cod']) == 404:
+            text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
+            return -1
         text = ''
         pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
         random_weather_start = (f"Погода в {pp_geo} на сегодня", f"Сейчас я вам расскажу о сегодняшней погоде в {pp_geo}", f"Сегодня в {pp_geo}")
-        text += choice(random_weather_start) + ' .. '
+        text += choice(random_weather_start) + ' . '
         if weather_data['weather'][0]['description'] == 'ясно':
-            text += f'В {pp_geo} наблюдается ясное небо' + ' .. '
+            text += f'В {pp_geo} наблюдается ясное небо . '
         elif weather_data['weather'][0]['description'] == 'пасмурно':
-            text += f'На улице виднеется пасмурная погода' + ' .. '
+            text += f'На улице виднеется пасмурная погода . '
         elif weather_data['weather'][0]['description'] == 'облачно с прояснениями':
-            text += f'В {pp_geo} на небе наблюдается облачная с прояснениями погода' + ' .. '
+            text += f'В {pp_geo} на небе наблюдается облачная с прояснениями погода . '
         elif weather_data['weather'][0]['description'] == 'переменная облачность':
-            text += f'На небе наблюдается переменная облачность' + ' .. '
+            text += f'На небе наблюдается переменная облачность . '
         elif weather_data['weather'][0]['description'] == 'морось':
-            text += f'На улице наблюдается моросящий дождь' + ' .. '
+            text += f'На улице наблюдается моросящий дождь . '
         elif weather_data['weather'][0]['description'] == 'небольшой дождь':
-            text += f'В {pp_geo} наблюдается небольшой дождь' + ' .. '
+            text += f'В {pp_geo} наблюдается небольшой дождь . '
         elif weather_data['weather'][0]['description'] == 'небольшой проливной дождь':
-            text += f'За окном наблюдается небольшой проливной дождь' + ' .. '
+            text += f'За окном наблюдается небольшой проливной дождь . '
         elif weather_data['weather'][0]['description'] == 'дождь':
-            text += f'За окном наблюдается дождь' + ' .. '
+            text += f'За окном наблюдается дождь . '
         elif weather_data['weather'][0]['description'] == 'сильный дождь':
-            text += f'В {pp_geo} с неба льёт сильный дождь' + ' .. '
+            text += f'В {pp_geo} с неба льёт сильный дождь . '
         else:
-            text += f"За окном в {pp_geo} наблюдается {weather_data['weather'][0]['description']}" + ' .. '
-        text += f"Температура же воздуха состовляет {int_to_string[int(weather_data['main']['temp'])]} градусов цельсия" + ' .. '
+            text += f"За окном в {pp_geo} наблюдается {weather_data['weather'][0]['description']} . "
+        text += f"Температура же воздуха составляет {degree_norm(int(weather_data['main']['temp']))} . "
         if weather_data['wind']['deg'] == 0 or weather_data['wind']['deg'] == 360:
-            text += f"Ветер сегодня западный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня западный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif 0 < weather_data['wind']['deg'] < 90:
-            text += f"Ветер сегодня юго-западный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня юго-западный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif weather_data['wind']['deg'] == 90:
-            text += f"Ветер сегодня южный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня южный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif 90 < weather_data['wind']['deg'] < 180:
-            text += f"Ветер сегодня юго-восточный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня юго-восточный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif weather_data['wind']['deg'] == 180:
-            text += f"Ветер сегодня восточный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня восточный со скростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif 180 < weather_data['wind']['deg'] < 270:
-            text += f"Ветер сегодня северо-восточный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня северо-восточный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif weather_data['wind']['deg'] == 270:
-            text += f"Ветер сегодня северный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня северный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         elif 270 < weather_data['wind']['deg'] < 360:
-            text += f"Ветер сегодня северо-западный со скростью {int_to_string[int(weather_data['wind']['speed'])]} метров в секунду" + ' .. '
+            text += f"Ветер сегодня северо-западный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
+        text_to_speak(text)
+    else:
+        weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
+        if int(weather_data['cod']) == 404:
+            text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
+            return -1
+        text = ''
+        pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
+        random_weather_start = (f"Погода в {pp_geo} на ближайшие три часа", f"Погода на ближайшие три часа в {pp_geo}", f"Погода на ближайшие три часа в {pp_geo}")
+        text += choice(random_weather_start) + ' . . . '
+        if weather_data['list'][0]['weather'][0]['description'] == 'ясно':
+            text += f'В {pp_geo} наблюдается ясное небо . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'пасмурно':
+            text += f'На улице виднеется пасмурная погода . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'облачно с прояснениями':
+            text += f'В {pp_geo} на небе наблюдается облачная с прояснениями погода . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'переменная облачность':
+            text += f'На небе наблюдается переменная облачность . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'морось':
+            text += f'На улице наблюдается моросящий дождь . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'небольшой дождь':
+            text += f'В {pp_geo} наблюдается небольшой дождь . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'небольшой проливной дождь':
+            text += f'За окном наблюдается небольшой проливной дождь . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'дождь':
+            text += f'За окном наблюдается дождь . . . '
+        elif weather_data['list'][0]['weather'][0]['description'] == 'сильный дождь':
+            text += f'В {pp_geo} с неба льёт сильный дождь . . . '
+        else:
+            text += f"За окном в {pp_geo} наблюдается {weather_data['weather'][0]['description']} . . . "
+        if weather_data['list'][0]['weather'][0]['description'] == weather_data['list'][1]['weather'][0]['description']:
+            text += "В ближайшее время изменений в погоде не наблюдается . . . "
+        else:
+            random_weather_weather = (f"В ближайшее время на улице будет {weather_data['list'][1]['weather'][0]['description']}", f"В течении трёх часов погода на улице будет {weather_data['list'][1]['weather'][0]['description']}")
+            text += choice(random_weather_weather) + ' . . . '
+        if int(weather_data['list'][0]['main']['temp']) == int(weather_data['list'][1]['main']['temp']):
+            text += 'В то же время в температуре изменений в ближайшее время наблюдаться не будет' + ' . . . '
+        elif int(weather_data['list'][0]['main']['temp']) > int(weather_data['list'][1]['main']['temp']):
+            text += f"Температура же в ближайшие три часа понизится на {degree_norm(int(weather_data['list'][0]['main']['temp']) - int(weather_data['list'][1]['main']['temp']))}" + ' . . . '
+        text += f"Сейчас же за окном {degree_norm(int(weather_data['list'][0]['main']['temp']))}" + ' . . . '
+        if weather_data['list'][0]['wind']['deg'] == 0 or weather_data['list'][0]['wind']['deg'] == 360:
+            text += f"Ветер сегодня западный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif 0 < weather_data['list'][0]['wind']['deg'] < 90:
+            text += f"Ветер сегодня юго-западный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif weather_data['list'][0]['wind']['deg'] == 90:
+            text += f"Ветер сегодня южный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif 90 < weather_data['list'][0]['wind']['deg'] < 180:
+            text += f"Ветер сегодня юго-восточный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif weather_data['list'][0]['wind']['deg'] == 180:
+            text += f"Ветер сегодня восточный со скростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif 180 < weather_data['list'][0]['wind']['deg'] < 270:
+            text += f"Ветер сегодня северо-восточный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif weather_data['list'][0]['wind']['deg'] == 270:
+            text += f"Ветер сегодня северный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
+        elif 270 < weather_data['list'][0]['wind']['deg'] < 360:
+            text += f"Ветер сегодня северо-западный со скоростью {speed_norm(int(weather_data['list'][0]['wind']['speed']))} . . . "
         text_to_speak(text)
 
 # Новости
@@ -470,19 +638,17 @@ Fula_cmd_key = {
     'search_yandex': ('найди в яндексе', 'поищи в яндексе', 'найди в яндекс', 'поищи в яндекс'),
     'play_song': ('песню', 'музыку'),
     'play_radio': ('радио', ),
-    'weather': ('погода', 'прогноз погоды'),
+    'weather': ('погода', 'прогноз погоды', 'погоду'),
     'news': ('новости', ),
     'exchange_rate': ('курс валюты', 'курс валют'),
     'auto_clicker': ('включи автокликер', 'запусти автокликер', 'вруби автокликер'),
-    'repeat': ('уву', 'ня', 'кусь'),
+    'repeat': ('уву', 'кусь'),
     'start_app': ('запусти', 'включи'),
     'reset_settings': ('сброс настроек', 'сбросить настройки', 'сбрось настройки'),
     'translation': ('переведи',),
 }
 
-# Стартовое сообщение
 print('[vosk запущен!]')
-print(f"{Fula['name']} был(а) запущен(а)!\nНынешняя версия =-= {Fula['version']}\nСоздатель =-= {Fula['author']}\nСайт =-= {Fula['web-site']}\nGithub =-= {Fula['github']}")
 
 # Загрузка пользовательских настроек
 print('[Загрузка пользовательских настроек] - ', end='')
@@ -501,6 +667,19 @@ if config == dict():
     reset_settings()
 else:
     print("[УСПЕХ!]")
+
+
+# Старт
+print('\n' * 100)
+print('░░███████╗░░██╗░░░██╗░░██╗░░░░░░░░█████╗░░░', f"{Fula['name']} был(а) запущен(а)!")
+print('░░██╔════╝░░██║░░░██║░░██║░░░░░░░██╔══██╗░░', f"Нынешняя версия =-= {Fula['version']}")
+print('░░█████╗░░░░██║░░░██║░░██║░░░░░░░███████║░░', f"Создатель =-= {Fula['author']}")
+print('░░██╔══╝░░░░██║░░░██║░░██║░░░░░░░██╔══██║░░', f"Сайт =-= {Fula['web-site']}")
+print('░░██║░░░░░░░╚██████╔╝░░███████╗░░██║░░██║░░', f"Github =-= {Fula['github']}")
+print('░░╚═╝░░░░░░░░╚═════╝░░░╚══════╝░░╚═╝░░╚═╝░░', "Примечание: абоба")
+print()
+print('\|-=-|Логи|-=-|/')
+
 
 # Проверка и предупреждение об отсутствии интернета
 if not(internet_connection()):
