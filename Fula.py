@@ -5,6 +5,7 @@ from vosk import Model, KaldiRecognizer  # STT
 from random import choice
 import torch  # Silero (TTS)
 import sounddevice
+import googletrans
 import webbrowser
 import pymorphy2
 import pyperclip
@@ -19,9 +20,6 @@ import json
 import bs4
 import os
 
-#k = pynput.keyboard.Controller()
-#k.press(pynput.keyboard.Key.media_play_pause)
-#k.release(pynput.keyboard.Key.media_play_pause)
 
 # Конфиги Fula
 Fula = {
@@ -38,6 +36,12 @@ Fula = {
 # Вывод в формате логов
 def log_print(key, text):
     print('[' + time.ctime() + ']', "[" + key + "]", text)
+
+# Конфиги для переводчика
+translator = googletrans.Translator()
+
+# Конфиги для клавиатуры
+keyboard_controller = pynput.keyboard.Controller()
 
 # Изменение падежей
 morph = pymorphy2.MorphAnalyzer()
@@ -172,18 +176,9 @@ def internet_connection(url='www.google.com'):
         return True
 
 
-# Команды
-
-# Информация о Fula
-def help_info(input_text = ''):
-    text = f"Сперва представлюсь, меня зовут {Fula['name_rus']}, запущенная на данный момент версия {int_to_string[int(Fula['version'].split('.')[0])]} {int_to_string[int(Fula['version'].split('.')[1])]} {int_to_string[int(Fula['version'].split('.')[2])]}, создателя же моего зовут азриель ст+ори"
-    text_to_speak(text)
-
-# Привет
-def hello(input_text = ''):
-    random_hello = ('Здравствуй', 'Здравствуйте', 'Привет', 'Приветствую')
-    text = f"{choice(random_hello)}, {config['name']}!"
-    text_to_speak(text)
+# /=======\
+# |Команды|
+# \=======/
 
 # Время
 def w_time(input_text = ''):
@@ -191,11 +186,6 @@ def w_time(input_text = ''):
     minute = time.strftime("%M")
     text = f"{int_to_string[hour]} {hours_norm[hour]} {minute_norm(minute)}"
     text_to_speak(text)
-
-# Анекдот
-def joke(input_text = ''):
-    random_joke = ()
-    text_to_speak(choice(random_joke))
 
 # Будильник ДОБАВИТЬ
 def alarm_add(input_text = ''):
@@ -295,33 +285,31 @@ def search_yandex(input_text = ''):
     webbrowser.open(url_y)
     log_print('Ссылка', url_y)
 
-# Запустить песню
-def play_song(input_text = ''):
-    pass
-
-# Запустить радио
-def play_radio(input_text = ''):
-    pass
-
 # Погода
 def weather(input_text = ''):
     if not(internet_connection()):
         random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать погоду, так как у меня нет интернет соединения', 'Я не смогу рассказать про погоду, так как нету интернет соединения')
         text_to_speak(choice(random_internet_null))
-        return 0
-    if ('в' in input_text or 'на' in input_text or 'во' in input_text) and not('сегодня' in input_text or 'понедельник' in input_text or 'вторник' in input_text or 'среду' in input_text or 'четверг' in input_text or 'пятницу' in input_text or 'суботу' in input_text or 'воскресенье' in input_text) and not(input_text.split().count('во') + input_text.split().count('в') + input_text.split().count('на') == 1 and 'завтра' in input_text):
+        return -1
+    if ('в' in input_text or 'на' in input_text or 'во' in input_text) and not('неделю' in input_text or 'сегодня' in input_text or 'понедельник' in input_text or 'вторник' in input_text or 'среду' in input_text or 'четверг' in input_text or 'пятницу' in input_text or 'суботу' in input_text or 'воскресенье' in input_text) and not(input_text.split().count('во') + input_text.split().count('в') + input_text.split().count('на') == 1 and 'завтра' in input_text):
         if 'в' in input_text.split():
             index_key = 'в'
         elif 'во' in input_text.split():
             index_key = 'во'
         elif 'на' in input_text.split():
             index_key = 'на'
-        geo_clear = input_text.split()[input_text.split().index(index_key) + 1]
         try:
-            geo_clear = morph.parse(geo_clear)[0].inflect({'nomn'}).word
-        except AttributeError:
-            text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
-            return -1
+            geo_clear = input_text.split()[input_text.split().index(index_key) + 1]
+            try:
+                geo_clear = morph.parse(geo_clear)[0].inflect({'nomn'}).word
+            except AttributeError:
+                text_to_speak('К сожелению, я не знаю какая погода в том месте, которое вы сказали')
+                return -1
+        except UnboundLocalError:
+            geo_mud = bs4.BeautifulSoup(requests.get('https://yandex.by/internet').text, "html.parser").find_all('div', class_='location-renderer__value')
+            for i in geo_mud:
+                geo_clear = i.text
+            geo_clear = geo_clear.strip().split()[-1]
     else:
         geo_mud = bs4.BeautifulSoup(requests.get('https://yandex.by/internet').text, "html.parser").find_all('div', class_='location-renderer__value')
         for i in geo_mud:
@@ -494,6 +482,22 @@ def weather(input_text = ''):
         elif 270 < weather_data['wind']['deg'] < 360:
             text += f"Ветер сегодня северо-западный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         text_to_speak(text)
+    elif 'понедельник' in input_text:
+        pass
+    elif 'вторник' in input_text:
+        pass
+    elif 'среду' in input_text:
+        pass
+    elif 'четверг' in input_text:
+        pass
+    elif 'пятницу' in input_text:
+        pass
+    elif 'субботу' in input_text:
+        pass
+    elif 'воскресенье' in input_text:
+        pass
+    elif 'неделю' in input_text:
+        pass
     else:
         weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
         if int(weather_data['cod']) == 404:
@@ -563,14 +567,6 @@ def exchange_rate(input_text = ''):
 def auto_clicker(input_text = ''):
     pass
 
-# OwO?
-def repeat(input_text = ''):
-    text_to_speak(input_text)
-
-# Запустить приложение
-def start_app(input_text = ''):
-    pass
-
 # Сброс настроек
 def reset_settings(input_text = ''):
     with open('config.json', 'w') as config_file_w:
@@ -588,16 +584,86 @@ def reset_settings(input_text = ''):
         json.dump(config, config_file_w)
 
 # Перевод слова/предложения из буфера обмена
-def translation():
+def translation(input_text = ''):
+    if not(internet_connection()):
+        random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать погоду, так как у меня нет интернет соединения', 'Я не смогу рассказать про погоду, так как нету интернет соединения')
+        text_to_speak(choice(random_internet_null))
+        return -1
+    text = pyperclip.paste()
+    translated_text = translator.translate(text, dest='ru')
+    if 'скопируй' in input_text or 'скопировать' in input_text or 'буфер' in input_text:
+        pyperclip.copy(translated_text.text)
+        text_to_speak('Я скопировала перевод в буфер обмена')
+    else:
+        text_to_speak(translated_text.text)
+
+# Голосовая клавиша паузы/пуска
+def pause(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_play_pause)
+    keyboard_controller.release(pynput.keyboard.Key.media_play_pause)
+
+# Голосовая кнопка следующее (vorm - video or music)
+def next_vorm(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_next)
+    keyboard_controller.release(pynput.keyboard.Key.media_next)
+
+# Голосовая кнопка предыдущая (vorm - video or music)
+def previous_vorm(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_previous)
+    keyboard_controller.release(pynput.keyboard.Key.media_previous)
+
+# Голосовая кнопка повышения громкости
+def volume_up(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_volume_up)
+    keyboard_controller.release(pynput.keyboard.Key.media_volume_up)
+
+# Голосовая кнопка понижения громкости
+def volume_down(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_volume_down)
+    keyboard_controller.release(pynput.keyboard.Key.media_volume_down)
+
+def volume_mute(input_text = ''):
+    keyboard_controller.press(pynput.keyboard.Key.media_volume_mute)
+    keyboard_controller.release(pynput.keyboard.Key.media_volume_mute)
+
+# Запустить песню
+def play_song(input_text = ''):
     pass
+
+# Запустить радио
+def play_radio(input_text = ''):
+    pass
+
+# Запустить приложение
+def start_app(input_text = ''):
+    pass
+
+
+# /===========\
+# |Разговорник|
+# \===========/
+
+# Информация о Fula
+def help_info(input_text = ''):
+    text = f"Сперва представлюсь, меня зовут {Fula['name_rus']}, запущенная на данный момент версия {int_to_string[int(Fula['version'].split('.')[0])]} {int_to_string[int(Fula['version'].split('.')[1])]} {int_to_string[int(Fula['version'].split('.')[2])]}, создателя же моего зовут азриель ст+ори"
+    text_to_speak(text)
+
+# Привет
+def hello(input_text = ''):
+    random_hello = ('Здравствуй', 'Здравствуйте', 'Привет', 'Приветствую')
+    text = f"{choice(random_hello)}, {config['name']}!"
+    text_to_speak(text)
+
+# Анекдот
+def joke(input_text = ''):
+    random_joke = ()
+    text_to_speak(choice(random_joke))
 
 
 # Команды конфиги
 Fula_cmd = {
-    'help': help_info,
-    'hello': hello,
+    # Команды
     'w_time': w_time,
-    'joke': joke,
     'alarm_add': alarm_add,
     'alarm_del': alarm_del,
     'sticker_add': sticker_add,
@@ -614,18 +680,25 @@ Fula_cmd = {
     'news': news,
     'exchange_rate': exchange_rate,
     'auto_clicker': auto_clicker,
-    'repeat': repeat,
     'start_app': start_app,
     'reset_settings': reset_settings,
     'translation': translation,
+    'pause': pause,
+    'next_vorm': next_vorm,
+    'previous_vorm': previous_vorm,
+    'volume_up': volume_up,
+    'volume_down': volume_down,
+    'volume_mute': volume_mute,
+    # Разговорник
+    'help': help_info,
+    'hello': hello,
+    'joke': joke,
 }
 
 # Команды ключи
 Fula_cmd_key = {
-    'help': ('дополнительная информация', 'ты кто', 'кто ты', 'кто тебя создал', 'кто твой создатель', 'как зовут твоего создателя', 'расскажи о себе', 'как тебя зовут'),
-    'hello': ('привет', 'хай', 'хэйоу', 'здравствуй', 'здравствуйте'),
+    # Команды
     'w_time': ('который час', 'сколько времени', 'сколько время', 'часы', 'что на часах', 'текущее время'),
-    'joke': ('шутка', 'шутку', 'анекдот', 'анекдоты', 'пошути'),
     'alarm_add': ('заведи будильник', 'поставь будильник'),
     'alarm_del': ('убери будильник', 'удали будильник', 'выключи будильник'),
     'sticker_add': ('напомни', 'поставь напоминание', 'добавь напоминание', 'установи напоминание'),
@@ -636,16 +709,25 @@ Fula_cmd_key = {
     'gen_password': ('сгенерируй пароль', 'придумай пароль', 'нужен пароль', 'дай пароль', 'придумать пароль'),
     'search_google': ('загугли', 'поищи в гугле', 'найди в гугле', 'поищи в гугл', 'найди в гугл'),
     'search_yandex': ('найди в яндексе', 'поищи в яндексе', 'найди в яндекс', 'поищи в яндекс'),
-    'play_song': ('песню', 'музыку'),
-    'play_radio': ('радио', ),
     'weather': ('погода', 'прогноз погоды', 'погоду'),
     'news': ('новости', ),
     'exchange_rate': ('курс валюты', 'курс валют'),
     'auto_clicker': ('включи автокликер', 'запусти автокликер', 'вруби автокликер'),
-    'repeat': ('уву', 'кусь'),
-    'start_app': ('запусти', 'включи'),
     'reset_settings': ('сброс настроек', 'сбросить настройки', 'сбрось настройки'),
     'translation': ('переведи',),
+    'pause': ('паузу', 'пауза', 'паузы', 'пуск'),
+    'next_vorm': ('следующая песня', 'следующее видео', 'следующая музыка', 'следующую песню', 'следующую музыку'),
+    'previous_vorm': ('предыдущая песня', 'предыдущее видео', 'предыдущая музыка', 'предыдущую песню', 'предыдущую музыку'),
+    'volume_up': ('повысь громкость', 'громче', 'громкость повыше'),
+    'volume_down': ('понизь громкость', 'тише', 'громкость пониже'),
+    'volume_mute': ('выключи звук', 'выруби звук', 'включи звук', 'вруби звук'),
+    'play_song': ('песню', 'музыку'),
+    'play_radio': ('радио', ),
+    'start_app': ('запусти', 'включи'),
+    # Разговорник
+    'help': ('дополнительная информация', 'ты кто', 'кто ты', 'кто тебя создал', 'кто твой создатель', 'как зовут твоего создателя', 'расскажи о себе', 'как тебя зовут'),
+    'hello': ('привет', 'хай', 'хэйоу', 'здравствуй', 'здравствуйте'),
+    'joke': ('шутка', 'шутку', 'анекдот', 'анекдоты', 'пошути'),
 }
 
 print('[vosk запущен!]')
