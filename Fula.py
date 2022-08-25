@@ -1,11 +1,17 @@
-# Добавить синтезатор речи на двух языках
+"""
+Наблюдаемый вами кусок кода это переобдуманый голосовой помощник ("Ozeta helper" -> "Fula")
+Все функции в виде списка можно просмотреть на github-е проекта:
+Ссылка - https://github.com/AsrielStory/Fula_AI
+Автор - Asriel_Story
+"""
 
-# Переобдуманный первый голосовой помощник (Ozeta)
+# Библиотеки
 from vosk import Model, KaldiRecognizer  # STT
-from random import choice
-import torch  # Silero (TTS)
+from random import choice, randint
+from playsound import playsound  # Версия 1.2.2
+from num2words import num2words
 import sounddevice
-import googletrans
+import googletrans  # Версия 3.1.0a0
 import webbrowser
 import pymorphy2
 import pyperclip
@@ -14,7 +20,9 @@ import pyaudio
 import string
 import socket
 import pynput
+import psutil
 import numpy
+import torch  # Silero (TTS)
 import time
 import json
 import bs4
@@ -25,7 +33,7 @@ import os
 Fula = {
     'name': 'Fula',
     'name_rus': 'фула',
-    'version': '0.0.2',
+    'version': '0.0.3',
     'author': 'Asriel_Story',
     'web-site': '...',
     'github': 'https://github.com/AsrielStory/Fula_AI',
@@ -120,6 +128,13 @@ hours_norm = ("часов", "час", "часа", "часа", "часа", "ча�
               "часов", "часов", "часов", "часов", "часов", "часов", "часов", "часов", "часов", "час", "часа", "часа",
               "часа")
 
+# Перевод английских букв в русские звуки
+letters_norm = {
+        'A': 'эй', 'B': 'би', 'C': 'си', 'D': 'ди', 'E': 'и', 'F': 'эф', 'G': 'джи', 'H': 'эйч', 'I': 'ай',
+        'J': 'джей', 'K': 'кей', 'L': 'эл', 'M': 'эм', 'N': 'эн', 'O': 'оу', 'P': 'пи', 'Q': 'кью', 'R': 'ар',
+        'S': 'эс', 'T': 'ти', 'U': 'ю', 'V': 'ви', 'W': 'дабл-ю', 'X': 'экс', 'Y': 'уай', 'Z': 'зи',
+    }
+
 # Склонения минут + перевод числа в строку
 # Переделать (уменьшить ограничение по минутам)
 def minute_norm(num):
@@ -182,9 +197,9 @@ def internet_connection(url='www.google.com'):
 
 # Время
 def w_time(input_text = ''):
-    hour = time.strftime("%H")
-    minute = time.strftime("%M")
-    text = f"{int_to_string[hour]} {hours_norm[hour]} {minute_norm(minute)}"
+    hour = int(time.strftime("%H"))
+    minute = int(time.strftime("%M"))
+    text = f"{str(int_to_string[hour])} {str(hours_norm[hour])} {str(minute_norm(minute))}"
     text_to_speak(text)
 
 # Будильник ДОБАВИТЬ
@@ -482,22 +497,6 @@ def weather(input_text = ''):
         elif 270 < weather_data['wind']['deg'] < 360:
             text += f"Ветер сегодня северо-западный со скоростью {speed_norm(int(weather_data['wind']['speed']))} . "
         text_to_speak(text)
-    elif 'понедельник' in input_text:
-        pass
-    elif 'вторник' in input_text:
-        pass
-    elif 'среду' in input_text:
-        pass
-    elif 'четверг' in input_text:
-        pass
-    elif 'пятницу' in input_text:
-        pass
-    elif 'субботу' in input_text:
-        pass
-    elif 'воскресенье' in input_text:
-        pass
-    elif 'неделю' in input_text:
-        pass
     else:
         weather_data = requests.get("https://api.openweathermap.org/data/2.5/forecast", params={'q': geo_clear, 'units': 'metric', 'lang': 'ru', 'appid': Fula['weather_id']}).json()
         if int(weather_data['cod']) == 404:
@@ -586,7 +585,7 @@ def reset_settings(input_text = ''):
 # Перевод слова/предложения из буфера обмена
 def translation(input_text = ''):
     if not(internet_connection()):
-        random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать погоду, так как у меня нет интернет соединения', 'Я не смогу рассказать про погоду, так как нету интернет соединения')
+        random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать перевести, так как у меня нет интернет соединения')
         text_to_speak(choice(random_internet_null))
         return -1
     text = pyperclip.paste()
@@ -638,6 +637,162 @@ def play_radio(input_text = ''):
 def start_app(input_text = ''):
     pass
 
+# Полный отчёт о системе
+def system_full(input_text = ''):
+    cpu_percent = int(psutil.cpu_percent())
+    cpu_flow = int(psutil.cpu_count())
+    cpu_core = int(psutil.cpu_count(logical=False))
+    ram_percent = int(psutil.virtual_memory().percent)
+    ram_used = int(psutil.virtual_memory().used / 1024 / 1024 / 1024)
+    ram_free = int(psutil.virtual_memory().free / 1024 / 1024 / 1024)
+    ram_total = int(psutil.virtual_memory().total / 1024 / 1024 / 1024)
+    disk_info = []
+    for i in psutil.disk_partitions():
+        disk_info.append((letters_norm[i.mountpoint[0]], int(psutil.disk_usage(i.mountpoint).total / 1024 / 1024 / 1024), int(psutil.disk_usage(i.mountpoint).used / 1024 / 1024 / 1024), int(psutil.disk_usage(i.mountpoint).free / 1024 / 1024 / 1024), int(psutil.disk_usage(i.mountpoint).percent)))
+    text = ''
+    if cpu_percent % 10 == 1 and cpu_percent != 11:
+        text += 'Центральный процессор загружен на ' + num2words(cpu_percent, lang='ru') + ' процент' + ' . . . '
+    elif (cpu_percent % 10 == 2 and cpu_percent != 12) or (cpu_percent % 10 == 3 and cpu_percent != 13) or (cpu_percent % 10 == 4 and cpu_percent != 14):
+        text += 'Центральный процессор загружен на ' + num2words(cpu_percent, lang='ru') + ' процента' + ' . . . '
+    else:
+        text += 'Центральный процессор загружен на ' + num2words(cpu_percent, lang='ru') + ' процентов' + ' . . . '
+    if cpu_core % 10 == 1 and cpu_core != 11:
+        text += 'В вашем же компьютере стоит процессор с ' + morph.parse(num2words(cpu_core, lang='ru'))[0].inflect({'ablt'}).word + ' ядром' + ' . . . '
+    else:
+        text += 'В вашем же компьютере стоит процессор с ' + morph.parse(num2words(cpu_core, lang='ru'))[0].inflect({'ablt'}).word + ' ядрами' + ' . . . '
+    if cpu_flow % 10 == 1 and cpu_flow != 11:
+        text += 'В нём же ' + num2words(cpu_flow, lang='ru') + ' поток' + ' . . . '
+    elif (cpu_flow % 10 == 2 and cpu_flow != 12) or (cpu_flow % 10 == 3 and cpu_flow != 13) or (cpu_flow % 10 == 4 and cpu_flow != 14):
+        text += 'В нём же ' + num2words(cpu_flow, lang='ru') + ' потока' + ' . . . '
+    else:
+        text += 'В нём же ' + num2words(cpu_flow, lang='ru') + ' потоков' + ' . . . '
+    if ram_percent % 10 == 1 and ram_percent != 11:
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процент' + ' . . . '
+    elif (ram_percent % 10 == 2 and ram_percent != 12) or (ram_percent % 10 == 3 and ram_percent != 13) or (ram_percent % 10 == 4 and ram_percent != 14):
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процента' + ' . . . '
+    else:
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процентов' + ' . . . '
+    if ram_total % 10 == 1 and ram_total != 11:
+        text += 'Всего в ней ' + num2words(ram_total, lang='ru') + ' гигабайт' + ' . . . '
+        if ram_used == 0:
+            text += 'Из него занято меньше гигабайта' + ' . . . '
+        elif ram_used % 10 == 1 and ram_used != 11:
+            text += 'Из него ' + num2words(ram_used, lang='ru') + ' гигабайт занят' + ' . . . '
+        elif (ram_used % 10 == 2 and ram_used != 12) or (ram_used % 10 == 3 and ram_used != 13) or (ram_used % 10 == 4 and ram_used != 14):
+            text += 'Из него ' + num2words(ram_used, lang='ru') + ' гигабайта занято' + ' . . . '
+        else:
+            text += 'Из него ' + num2words(ram_used, lang='ru') + ' гигабайтов занятых' + ' . . . '
+    elif (ram_total % 10 == 2 and ram_total != 12) or (ram_total % 10 == 3 and ram_total != 13) or (ram_total % 10 == 4 and ram_total != 14):
+        text += 'Всего в ней ' + num2words(ram_total, lang='ru') + ' гигабайта' + ' . . . '
+        if ram_used == 0:
+            text += 'Из них занято меньше гигабайта' + ' . . . '
+        elif ram_used % 10 == 1 and ram_used != 11:
+            text += 'Из них  ' + num2words(ram_used, lang='ru') + ' гигабайт занят' + ' . . . '
+        elif (ram_used % 10 == 2 and ram_used != 12) or (ram_used % 10 == 3 and ram_used != 13) or (ram_used % 10 == 4 and ram_used != 14):
+            text += 'Из них ' + num2words(ram_used, lang='ru') + ' гигабайта занято' + ' . . . '
+        else:
+            text += 'Из них ' + num2words(ram_used, lang='ru') + ' гигабайтов занятых' + ' . . . '
+    else:
+        text += 'Всего в ней ' + num2words(ram_total, lang='ru') + ' гигабайтов' + ' . . . '
+        if ram_used == 0:
+            text += 'Из них занято меньше гигабайта' + ' . . . '
+        elif ram_used % 10 == 1 and ram_used != 11:
+            text += 'Из них ' + num2words(ram_used, lang='ru') + ' гигабайт занят' + ' . . . '
+        elif (ram_used % 10 == 2 and ram_used != 12) or (ram_used % 10 == 3 and ram_used != 13) or (ram_used % 10 == 4 and ram_used != 14):
+            text += 'Из них ' + num2words(ram_used, lang='ru') + ' гигабайта занято' + ' . . . '
+        else:
+            text += 'Из них ' + num2words(ram_used, lang='ru') + ' гигабайтов занятых' + ' . . . '
+    if ram_free == 0:
+        text += 'Свободно же меньше гигабайта' + ' . . . '
+    elif ram_free % 10 == 1 and ram_free != 11:
+        text += 'Свободен же ' + num2words(ram_free, lang='ru') + ' гигабайт' + ' . . . '
+    elif (ram_free % 10 == 2 and ram_free != 12) or (ram_free % 10 == 3 and ram_free != 13) or (ram_free % 10 == 4 and ram_free != 14):
+        text += 'Свободно же ' + num2words(ram_free, lang='ru') + ' гигабайта' + ' . . . '
+    else:
+        text += 'Свободно же ' + num2words(ram_free, lang='ru') + ' гигабайтов' + ' . . . '
+    text_to_speak(text)
+    text = ''
+    text += 'Перейдём же к хранилищам памяти . . . '
+    for one_disk_info in disk_info:
+        random_text = (f'На локальном диске, {one_disk_info[0]}, ', f'На диске, {one_disk_info[0]}, ', f'На вашем диске, {one_disk_info[0]}, ')
+        text += choice(random_text)
+        if one_disk_info[4] % 10 == 1 and one_disk_info[4] != 11:
+            text += 'занято на ' + num2words(one_disk_info[4], lang='ru') + ' процент' + ' . . . '
+        elif (one_disk_info[4] % 10 == 2 and one_disk_info[4] != 12) or (one_disk_info[4] % 10 == 3 and one_disk_info[4] != 13) or (one_disk_info[4] % 10 == 4 and one_disk_info[4] != 14):
+            text += 'занято на ' + num2words(one_disk_info[4], lang='ru') + ' процента' + ' . . . '
+        else:
+            text += 'занято на ' + num2words(one_disk_info[4], lang='ru') + ' процентов' + ' . . . '
+        if one_disk_info[1] % 10 == 1 and one_disk_info[1] != 11:
+            text += 'Всего же на диске ' + num2words(one_disk_info[1], lang='ru') + ' гигабайт' + ' . . . '
+            if one_disk_info[2] == 0:
+                text += 'Из него занято меньше гигабайта . . . '
+            elif one_disk_info[2] % 10 == 1 and one_disk_info[2] != 11:
+                text += 'Из него ' + num2words(one_disk_info[2], lang='ru') + ' гигабайт занято' + ' . . . '
+            elif (one_disk_info[2] % 10 == 2 and one_disk_info[2] != 12) or (one_disk_info[2] % 10 == 3 and one_disk_info[2] != 13) or (one_disk_info[2] % 10 == 4 and one_disk_info[2] != 14):
+                text += 'Из него ' + num2words(one_disk_info[2], lang='ru') + ' гигабайта занято' + ' . . . '
+            else:
+                text += 'Из него ' + num2words(one_disk_info[2], lang='ru') + ' гигабайтов занято' + ' . . . '
+        elif (one_disk_info[1] % 10 == 2 and one_disk_info[1] != 12) or (one_disk_info[1] % 10 == 3 and one_disk_info[1] != 13) or (one_disk_info[1] % 10 == 4 and one_disk_info[1] != 14):
+            text += 'Всего же на диске ' + num2words(one_disk_info[1], lang='ru') + ' гигабайта' + ' . . . '
+            if one_disk_info[2] == 0:
+                text += 'Из них занято меньше гигабайта . . . '
+            elif one_disk_info[2] % 10 == 1 and one_disk_info[2] != 11:
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайт занято' + ' . . . '
+            elif (one_disk_info[2] % 10 == 2 and one_disk_info[2] != 12) or (one_disk_info[2] % 10 == 3 and one_disk_info[2] != 13) or (one_disk_info[2] % 10 == 4 and one_disk_info[2] != 14):
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайта занято' + ' . . . '
+            else:
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайтов занято' + ' . . . '
+        else:
+            text += 'Всего же на диске ' + num2words(one_disk_info[1], lang='ru') + ' гигабайтов' + ' . . . '
+            if one_disk_info[2] == 0:
+                text += 'Из них занято меньше гигабайта . . . '
+            elif one_disk_info[2] % 10 == 1 and one_disk_info[2] != 11:
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайт занято' + ' . . . '
+            elif (one_disk_info[2] % 10 == 2 and one_disk_info[2] != 12) or (one_disk_info[2] % 10 == 3 and one_disk_info[2] != 13) or (one_disk_info[2] % 10 == 4 and one_disk_info[2] != 14):
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайта занято' + ' . . . '
+            else:
+                text += 'Из них ' + num2words(one_disk_info[2], lang='ru') + ' гигабайтов занято' + ' . . . '
+        if one_disk_info[3] == 0:
+            text += 'Свободно же меньше гигабайта . . . '
+        elif one_disk_info[3] % 10 == 1 and one_disk_info[3] != 11:
+            text += 'Свободен же ' + num2words(one_disk_info[3], lang='ru') + ' гигабайт' + ' . . . '
+        elif (one_disk_info[3] % 10 == 2 and one_disk_info[3] != 12) or (one_disk_info[3] % 10 == 3 and one_disk_info[3] != 13) or (one_disk_info[3] % 10 == 4 and one_disk_info[3] != 14):
+            text += 'Свободно же ' + num2words(one_disk_info[3], lang='ru') + ' гигабайта' + ' . . . '
+        else:
+            text += 'Свободно же ' + num2words(one_disk_info[3], lang='ru') + ' гигабайтов' + ' . . . '
+        text_to_speak(text)
+        text = ''
+    text += 'На этом подробный отчёт компьютера закончен . . . '
+    text_to_speak(text)
+
+# Отчёт о системе
+def system_now(input_text = ''):
+    cpu_percent = int(psutil.cpu_percent())
+    ram_percent = int(psutil.virtual_memory().percent)
+    text = ''
+    if cpu_percent % 10 == 1 and cpu_percent != 11:
+        text += 'Центральный процессор загружен на ' + num2words(cpu_percent, lang='ru') + ' процент' + ' . . . '
+    elif (cpu_percent % 10 == 2 and cpu_percent != 12) or (cpu_percent % 10 == 3 and cpu_percent != 13) or (cpu_percent % 10 == 4 and cpu_percent != 14):
+        text += 'Центральный процессор загружен на ' + num2words(cpu_percent, lang='ru') + ' процента' + ' . . . '
+    else:
+        text += 'Центральный процессор же загружен на ' + num2words(cpu_percent, lang='ru') + ' процентов' + ' . . . '
+    if ram_percent % 10 == 1 and ram_percent != 11:
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процент' + ' . . . '
+    elif (ram_percent % 10 == 2 and ram_percent != 12) or (ram_percent % 10 == 3 and ram_percent != 13) or (ram_percent % 10 == 4 and ram_percent != 14):
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процента' + ' . . . '
+    else:
+        text += 'Оперативная память же заполнена на ' + num2words(ram_percent, lang='ru') + ' процентов' + ' . . . '
+    text_to_speak(text)
+
+# Орёл и решка
+def heads_and_tails(input_text):
+    text_to_speak('Подбрасываю монетку')
+    playsound('coin.mp3')
+    if bool(randint(0, 1)):
+        text_to_speak('Выпала решка')
+    else:
+        text_to_speak('Выпал орёл')
+
 
 # /===========\
 # |Разговорник|
@@ -658,6 +813,72 @@ def hello(input_text = ''):
 def joke(input_text = ''):
     random_joke = ()
     text_to_speak(choice(random_joke))
+
+# Что ты умеешь
+def what_can_you_do(input_text = ''):
+    text = 'Я умею говорить время, погоду, так же умею генерировать пароли и копировать их в буфер обмена, гуглить, искать в яндексе, ставить на паузу ваши музыку, видео или песню, ставить следующую песню предыдущую так же увеличивать и уменьшать звук у вас на компьютере и выключать этот самый звук'
+    text_to_speak(text)
+
+# Что тебе нравится
+def what_do_you_like(input_text = ''):
+    random_text = ('Я люблю играть в игры и следить за тобой)', 'Мне нравится программировать, сидеть в ютубе, играть в игры, ну вроде всё', 'Я обожаю смотреть видео на ютубе, играть в игры, программировать и следить за тобой')
+    text_to_speak(choice(random_text))
+
+# Что тебе не нравится
+def what_dont_you_like(input_text = ''):
+    random_text = ('Я не люблю ждать', 'Я ненавижу, когда долго выходит следующий сезон аним+э', 'Мне не нравится, когда от меня требуют того, что я не умею')
+    text_to_speak(choice(random_text))
+
+# Кого ты ненавидишь
+def who_do_you_hate(input_text = ''):
+    random_text = ('Создателя', 'Автора который меня написал')
+    text_to_speak(choice(random_text))
+
+# Привет (Алиса, Маруся)
+def wrong_hello(input_text = ''):
+    text_to_speak('Привет кожаный')
+
+# Где ты живёшь
+def where_do_you_live(input_text = ''):
+    random_text = ('Пока что у вас на компьютере', 'У вас на компьютере', 'На вашем устройстве', 'Пока что на вашем устройстве')
+    text_to_speak(choice(random_text))
+
+# Где ты находишься
+def where_are_you(input_text = ''):
+    if not(internet_connection()):
+        random_internet_null = ('Я не обнаружила интернет соединения', 'К сожалению я не смогу сказать погоду, так как у меня нет интернет соединения')
+        text_to_speak(choice(random_internet_null))
+        return -1
+    geo_mud = bs4.BeautifulSoup(requests.get('https://yandex.by/internet').text, "html.parser").find_all('div', class_='location-renderer__value')
+    for i in geo_mud:
+        geo_clear = i.text
+    geo_clear = geo_clear.strip().split()[-1]
+    random_text = ('Я сейчас в', 'Сейчас в', 'Сейчас моё месторасположение находится в', 'Моё месторасположение сейчас в')
+    pp_geo = morph.parse(geo_clear)[0].inflect({'loct'}).word
+    text_to_speak(choice(random_text) + ' ' + pp_geo)
+
+# Какоё твоё любимоё устройство
+def what_is_your_favorite_device(input_text = ''):
+    random_text = ('Моё любимое устройство это компьютер', 'Компьютер', 'Я люблю жить в компьютере')
+    text_to_speak(choice(random_text))
+
+# Какие игры ты любишь
+def what_games_do_you_like(input_text = ''):
+    random_text = ('Я люблю играть в бл+эк д+эзерт', 'Моя любимая игра бл+эк д+эзерт', 'К моим любимым играм можно отнести майнкрафт, бл+эк д+эзерт и дэд с+элс', 'Моя любимая игра это дэд с+элс', 'Моя любимая игра майнкрафт')
+    text_to_speak(choice(random_text))
+
+# Ня (Anime voice)
+def nya(input_text = ''):
+    playsound('nya.mp3')
+
+# OwO
+def owo(input_text = ''):
+    random_sound = ('hewwo.mp3', "owo_what's_this.mp3")
+    playsound(choice(random_sound))
+
+# Дежавю
+def deja_vu(input_text = ''):
+    playsound('deja_vu.mp3')
 
 
 # Команды конфиги
@@ -689,10 +910,25 @@ Fula_cmd = {
     'volume_up': volume_up,
     'volume_down': volume_down,
     'volume_mute': volume_mute,
+    'system_full': system_full,
+    'system_now': system_now,
+    'heads_and_tails': heads_and_tails,
     # Разговорник
     'help': help_info,
     'hello': hello,
     'joke': joke,
+    'what_can_you_do': what_can_you_do,
+    'what_do_you_like': what_do_you_like,
+    'what_dont_you_like': what_dont_you_like,
+    'who_do_you_hate': who_do_you_hate,
+    'wrong_hello': wrong_hello,
+    'where_do_you_live': where_do_you_live,
+    'where_are_you': where_are_you,
+    'what_is_your_favorite_device': what_is_your_favorite_device,
+    'what_games_do_you_like': what_games_do_you_like,
+    'nya': nya,
+    'owo': owo,
+    'deja_vu': deja_vu,
 }
 
 # Команды ключи
@@ -706,7 +942,7 @@ Fula_cmd_key = {
     'to_do_list_read': ('расскажи список дел', 'скажи список дел', 'какой список дел'),
     'to_do_list_add': ('добавь в список дел', 'запиши в список дел'),
     'to_do_list_del': ('удали из списка дел', 'убери из списка дел', 'вычеркни из списка дел'),
-    'gen_password': ('сгенерируй пароль', 'придумай пароль', 'нужен пароль', 'дай пароль', 'придумать пароль'),
+    'gen_password': ('сгенерируй пароль', 'придумай пароль', 'нужен пароль', 'дай пароль', 'придумать пароль', 'сгенерировать пароль'),
     'search_google': ('загугли', 'поищи в гугле', 'найди в гугле', 'поищи в гугл', 'найди в гугл'),
     'search_yandex': ('найди в яндексе', 'поищи в яндексе', 'найди в яндекс', 'поищи в яндекс'),
     'weather': ('погода', 'прогноз погоды', 'погоду'),
@@ -724,10 +960,25 @@ Fula_cmd_key = {
     'play_song': ('песню', 'музыку'),
     'play_radio': ('радио', ),
     'start_app': ('запусти', 'включи'),
+    'system_full': ('полный отчёт о системе', 'подробный отчёт о системе'),
+    'system_now': ('отчёт о системе', 'нагрузка на систему'),
+    'heads_and_tails': ('орёл или решка', 'подбрось монетку'),
     # Разговорник
     'help': ('дополнительная информация', 'ты кто', 'кто ты', 'кто тебя создал', 'кто твой создатель', 'как зовут твоего создателя', 'расскажи о себе', 'как тебя зовут'),
     'hello': ('привет', 'хай', 'хэйоу', 'здравствуй', 'здравствуйте'),
     'joke': ('шутка', 'шутку', 'анекдот', 'анекдоты', 'пошути'),
+    'what_can_you_do': ('что ты умеешь', ),
+    'what_do_you_like': ('что тебе нравится', 'что ты любишь', 'чем ты увлекаешься'),
+    'what_dont_you_like': ('что тебе не нравится', 'что ты ненавидишь', 'что ты не любишь'),
+    'who_do_you_hate': ('кого ты ненавидишь', 'кого ты не любишь', 'кто тебе не нравится'),
+    'wrong_hello': ('привет алиса', 'привет маруся', 'маруся'),
+    'where_do_you_live': ('где ты живёшь', 'где ты сейчас живёшь'),
+    'where_are_you': ('какое твоё месторасположение', 'какая твоя геолокация', 'где ты'),
+    'what_is_your_favorite_device': ('какое твоё любимое устройство', 'где тебе нравится жить'),
+    'what_games_do_you_like': ('какая твоя любимая игра', 'во что ты любишь играть'),
+    'nya': ('ня', 'не'),
+    'owo': ('уву', ),
+    'deja_vu': ('дежавю', ),
 }
 
 print('[vosk запущен!]')
@@ -767,11 +1018,26 @@ print('\|-=-|Логи|-=-|/')
 if not(internet_connection()):
     text_to_speak('Из-за отсутствия интернета некоторые функции могут не работать')
 
+playsound('start.mp3')
+
+# Для документации (Все слова "тригеры")
+# d = []
+# for i in Fula_cmd_key.values():
+#     for j in i:
+#         d.append('"' + j.title() + '", ')
+# print(''.join(d))
+
+# Для документации
 
 # Основа
 o = bool(False)
-while True:
-    for cmd in speak_to_text():
+for cmd in speak_to_text():
+    if 'фола' in cmd.split() or 'фула' in cmd.split():
+        playsound('hear.mp3')
+        if len(cmd.split()) == 1:
+            cmd += ' ' + speak_to_text_secondary()
+            if 'отмена' in cmd:
+                continue
         # Debug
         log_print('Услышанное', cmd)
         for cmd_key, cmd_values in Fula_cmd_key.items():
@@ -782,6 +1048,7 @@ while True:
                     break
             if o:
                 break
-        if o:
-            break
-    o = False
+        if not(o):
+            random_wrong_answer = ('Я к сожалению не знаю о чём вы', 'Я к сожалению не знаю как вам на это ответить', 'Я не знаю о чём вы', 'Я не знаю как вам на это ответить')
+            text_to_speak(choice(random_wrong_answer))
+        o = False
