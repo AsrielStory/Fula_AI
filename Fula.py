@@ -787,7 +787,7 @@ def system_now(input_text = ''):
 # Орёл и решка
 def heads_and_tails(input_text):
     text_to_speak('Подбрасываю монетку')
-    playsound('coin.mp3')
+    playsound('sounds/coin.mp3')
     if bool(randint(0, 1)):
         text_to_speak('Выпала решка')
     else:
@@ -869,16 +869,16 @@ def what_games_do_you_like(input_text = ''):
 
 # Ня (Anime voice)
 def nya(input_text = ''):
-    playsound('nya.mp3')
+    playsound('sounds/nya.mp3')
 
 # OwO
 def owo(input_text = ''):
-    random_sound = ('hewwo.mp3', "owo_what's_this.mp3")
+    random_sound = ('sounds/hewwo.mp3', "sounds/owo_what's_this.mp3")
     playsound(choice(random_sound))
 
 # Дежавю
 def deja_vu(input_text = ''):
-    playsound('deja_vu.mp3')
+    playsound('sounds/deja_vu.mp3')
 
 
 # Команды конфиги
@@ -1018,7 +1018,7 @@ print('\|-=-|Логи|-=-|/')
 if not(internet_connection()):
     text_to_speak('Из-за отсутствия интернета некоторые функции могут не работать')
 
-playsound('start.mp3')
+playsound('sounds/start.mp3')
 
 # Для документации (Все слова "тригеры")
 # d = []
@@ -1033,7 +1033,7 @@ playsound('start.mp3')
 o = bool(False)
 for cmd in speak_to_text():
     if 'фола' in cmd.split() or 'фула' in cmd.split():
-        playsound('hear.mp3')
+        playsound('sounds/hear.mp3')
         if len(cmd.split()) == 1:
             cmd += ' ' + speak_to_text_secondary()
             if 'отмена' in cmd:
